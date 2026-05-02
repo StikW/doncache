@@ -4,9 +4,9 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS answers_cache (
   id SERIAL PRIMARY KEY,
-  curso_id INT NOT NULL,
-  modulo_id INT NOT NULL,
-  pregunta_id INT NOT NULL,
+  curso_id TEXT NOT NULL,
+  modulo_id TEXT NOT NULL,
+  pregunta_id TEXT NOT NULL,
   respuesta_original TEXT NOT NULL,
   respuesta_normalizada TEXT NOT NULL,
   keywords JSONB DEFAULT '[]'::jsonb,

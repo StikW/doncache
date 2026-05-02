@@ -27,15 +27,47 @@ function validateBody(body) {
     err.statusCode = 400;
     throw err;
   }
-  const cursoId = Number(curso_id);
-  const moduloId = Number(modulo_id);
-  const preguntaId = Number(pregunta_id);
-  if (![cursoId, moduloId, preguntaId].every(Number.isFinite)) {
-    const err = new Error('curso_id, modulo_id y pregunta_id deben ser números válidos');
+  // En la plataforma real estos IDs pueden ser UUID (string). Los tratamos como string para DB/cache.
+  const cursoId = String(curso_id).trim();
+  const moduloId = String(modulo_id).trim();
+  const preguntaId = String(pregunta_id).trim();
+  if (!cursoId || !moduloId || !preguntaId) {
+    const err = new Error('curso_id, modulo_id y pregunta_id no pueden ser vacíos');
     err.statusCode = 400;
     throw err;
   }
   return { cursoId, moduloId, preguntaId, respuesta: respuesta.trim() };
+}
+
+function validateStoreBody(body) {
+  const { curso_id, modulo_id, pregunta_id, respuesta, resultado } = body ?? {};
+  if (
+    curso_id == null ||
+    modulo_id == null ||
+    pregunta_id == null ||
+    typeof respuesta !== 'string' ||
+    !respuesta.trim()
+  ) {
+    const err = new Error(
+      'Body inválido: se requieren curso_id, modulo_id, pregunta_id (numéricos) y respuesta (string no vacía)'
+    );
+    err.statusCode = 400;
+    throw err;
+  }
+  const cursoId = String(curso_id).trim();
+  const moduloId = String(modulo_id).trim();
+  const preguntaId = String(pregunta_id).trim();
+  if (!cursoId || !moduloId || !preguntaId) {
+    const err = new Error('curso_id, modulo_id y pregunta_id no pueden ser vacíos');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (resultado == null || typeof resultado !== 'object' || Array.isArray(resultado)) {
+    const err = new Error('Body inválido: resultado debe ser un objeto JSON');
+    err.statusCode = 400;
+    throw err;
+  }
+  return { cursoId, moduloId, preguntaId, respuesta: respuesta.trim(), resultado };
 }
 
 async function postEvaluate(req, res, next) {
@@ -115,4 +147,42 @@ async function postEvaluate(req, res, next) {
   }
 }
 
-module.exports = { postEvaluate, SEMANTIC_THRESHOLD };
+async function postStoreEvaluation(req, res, next) {
+  try {
+    const { cursoId, moduloId, preguntaId, respuesta, resultado } = validateStoreBody(req.body);
+
+    const { respuestaNormalizada, keywords, entidades } = preprocessAnswer(respuesta);
+    const hash = buildExactCacheKey(cursoId, moduloId, preguntaId, respuestaNormalizada);
+
+    let embedding = await getEmbeddingCache(hash);
+    if (embedding) {
+      console.log('[store] embedding reutilizado desde Redis');
+    } else {
+      embedding = generateMockEmbedding(`${hash}:emb`);
+      await setEmbeddingCache(hash, embedding);
+      console.log('[store] embedding generado (mock) y guardado en Redis');
+    }
+    const embeddingLiteral = embeddingToPgVectorLiteral(embedding);
+
+    const newId = await answersRepo.insertAnswerRow({
+      cursoId,
+      moduloId,
+      preguntaId,
+      respuestaOriginal: respuesta,
+      respuestaNormalizada,
+      keywords,
+      entidades,
+      embeddingLiteral,
+      resultadoIa: resultado,
+    });
+
+    await setExactCacheId(hash, newId);
+    console.log('[store] guardado en BD y cache exacto actualizado', { id: newId, hash: hash.slice(0, 12) });
+
+    return res.json({ stored: true, id: newId, source: 'agent' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { postEvaluate, postStoreEvaluation, SEMANTIC_THRESHOLD };

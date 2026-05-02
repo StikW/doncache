@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
-const { postEvaluate } = require('./controllers/evaluateController');
+const { postEvaluate, postStoreEvaluation } = require('./controllers/evaluateController');
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -11,6 +11,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.post('/evaluate', postEvaluate);
+app.post('/evaluate/store', postStoreEvaluation);
 
 app.use((err, _req, res, _next) => {
   const status = err.statusCode && Number.isInteger(err.statusCode) ? err.statusCode : 500;

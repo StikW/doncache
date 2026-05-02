@@ -64,11 +64,45 @@ Respuesta:
 - `cache_semantic`: vecino con distancia coseno `<` umbral (0.25); se rellena caché exacta
 - `ia`: mock; inserta fila y actualiza Redis
 
+## Guardar evaluación del agente (n8n)
+
+Si después de pasar por tu agente (n8n) quieres **persistir el resultado final** para que futuras respuestas entren por caché, usa:
+
+`POST /evaluate/store`
+
+Body JSON:
+
+```json
+{
+  "curso_id": 1,
+  "modulo_id": 2,
+  "pregunta_id": 5,
+  "respuesta": "La fotosíntesis ocurre en las hojas",
+  "resultado": {
+    "score": 0.95,
+    "feedback": "Respuesta correcta...",
+    "correct": true
+  }
+}
+```
+
+Respuesta:
+
+```json
+{ "stored": true, "id": 123, "source": "agent" }
+```
+
+En n8n típicamente mandarías `"resultado": {{ $json.output }}` si `output` ya es un objeto, o `"resultado": {{ JSON.parse($json.output) }}` si `output` es string JSON.
+
 ## Notas técnicas
 
 - La consulta usa el operador de distancia coseno de pgvector (`<=>`), coherente con el índice `vector_cosine_ops` del `schema.sql`. La guía original mencionaba `<->` (L2); con índice coseno conviene `<=>`.
 - Los embeddings son **mock deterministas** (vector 1536 normalizado) hasta conectar un proveedor real.
 - `GET /health` para comprobaciones de despliegue.
+
+## IDs (UUID vs enteros)
+
+Este proyecto asume que `curso_id`, `modulo_id` y `pregunta_id` pueden ser **strings** (p. ej. UUID) y por eso el `schema.sql` los define como `TEXT`. Si en tu plataforma son enteros, también funciona (se serializan a string).
 
 ## Despliegue en Render
 
