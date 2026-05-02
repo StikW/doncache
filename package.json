@@ -1,0 +1,20 @@
+{
+  "name": "doncache-evaluate-mvp",
+  "version": "1.0.0",
+  "description": "Hybrid cache (Redis exact + pgvector semantic) for AI answer evaluation MVP",
+  "main": "src/app.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1"
+  }
+}
